@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import GeminiChatbot from './GeminiChatbot'
 import helpifyReadme from './README.md?raw'
 import githubSetup from './GITHUB_SETUP.md?raw'
 
@@ -829,19 +830,11 @@ function App() {
             </div>
             <div className="summary-pill">Try: reminder, goal, tutor</div>
           </div>
-          <div className="chat-card assistant-chat">
-            <div className="chat-messages">
-              {chatMessages.map((message) => (
-                <div key={message.id} className={`chat-bubble ${message.role}`}>
-                  {message.text}
-                </div>
-              ))}
-            </div>
-            <form className="chat-form" onSubmit={sendChatMessage}>
-              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="What should I focus on today?" />
-              <button className="primary" type="submit">Send</button>
-            </form>
-          </div>
+          <GeminiChatbot
+            studentProfile={studentForm}
+            schoolStats={stats}
+            currentUser={currentUser}
+          />
         </section>
 
         {isTeacherOrAdmin ? (
