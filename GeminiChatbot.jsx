@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import helpifyDoc from './README (4).md?raw'
+import { canUseAssistant, getPlanLabel, getPlanLimits, getPlanPrice } from './src/monetization'
 
 const STORAGE_KEY = 'helpify-gemini-key'
 const CHAT_KEY = 'helpify-chat-messages'
@@ -17,6 +18,8 @@ export default function GeminiChatbot({ studentProfile, schoolStats, currentUser
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [plan, setPlan] = useState('free')
+  const [usageCount, setUsageCount] = useState(0)
 
   useEffect(() => {
     const savedKey = localStorage.getItem(STORAGE_KEY) || ''
@@ -30,6 +33,11 @@ export default function GeminiChatbot({ studentProfile, schoolStats, currentUser
         if (Array.isArray(parsed) && parsed.length) setMessages(parsed)
       } catch {}
     }
+
+    const savedPlan = localStorage.getItem('helpify-plan') || 'free'
+    const savedUsage = Number(localStorage.getItem('helpify-usage-count') || '0')
+    setPlan(savedPlan)
+    setUsageCount(savedUsage)
   }, [])
 
   useEffect(() => {
@@ -102,9 +110,21 @@ ${schoolStats ? `Total profiles: ${schoolStats.total}, At risk: ${schoolStats.at
     localStorage.removeItem(STORAGE_KEY)
   }
 
+  function upgradePlan() {
+    const nextPlan = plan === 'premium' ? 'free' : 'premium'
+    setPlan(nextPlan)
+    localStorage.setItem('helpify-plan', nextPlan)
+    setError('')
+  }
+
   async function sendMessage() {
     const text = input.trim()
     if (!text || loading) return
+
+    if (!canUseAssistant({ plan, usageCount })) {
+      setError(`You reached the ${getPlanLabel(plan)} limit. Upgrade to Premium for unlimited assistant use.`)
+      return
+    }
 
     const api = apiKey || localStorage.getItem(STORAGE_KEY) || ''
     if (!api) {
@@ -152,6 +172,9 @@ ${schoolStats ? `Total profiles: ${schoolStats.total}, At risk: ${schoolStats.at
         'I could not generate a response.'
 
       setMessages((prev) => [...prev, { role: 'assistant', text: reply }])
+      const nextUsage = usageCount + 1
+      setUsageCount(nextUsage)
+      localStorage.setItem('helpify-usage-count', String(nextUsage))
     } catch (err) {
       setError('Could not reach Gemini. Check your API key.')
       setMessages((prev) => [
@@ -168,6 +191,16 @@ ${schoolStats ? `Total profiles: ${schoolStats.total}, At risk: ${schoolStats.at
 
   return (
     <div style={styles.card}>
+      <div style={styles.planBanner}>
+        <div>
+          <strong>{getPlanLabel(plan)} plan</strong>
+          <div style={styles.mutedText}>{getPlanPrice(plan)} • {getPlanLimits(plan).badge}</div>
+        </div>
+        <button style={styles.upgradeBtn} type="button" onClick={upgradePlan}>
+          {plan === 'premium' ? 'Downgrade to Free' : 'Upgrade to Premium'}
+        </button>
+      </div>
+
       <h2 style={styles.title}>Helpify Assistant</h2>
       <p style={styles.subtitle}>Ask Helpify AI about study help, reminders, tutoring, or progress.</p>
 
@@ -195,6 +228,7 @@ ${schoolStats ? `Total profiles: ${schoolStats.total}, At risk: ${schoolStats.at
       </div>
 
       {error ? <p style={styles.error}>{error}</p> : null}
+      <div style={styles.usageText}>Assistant queries used: {usageCount} / {getPlanLimits(plan).maxQueries === Infinity ? '∞' : getPlanLimits(plan).maxQueries}</div>
 
       <label style={styles.label}>
         Gemini API key
@@ -260,6 +294,26 @@ const styles = {
   },
   title: { margin: 0, fontSize: 22, fontWeight: 900, color: '#172033' },
   subtitle: { margin: 0, color: '#667085' },
+  planBanner: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    padding: '12px 14px',
+    borderRadius: 16,
+    background: '#f4f7ff',
+    border: '1px solid #dbe3ef',
+  },
+  mutedText: { color: '#667085', fontSize: 13 },
+  upgradeBtn: {
+    background: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 999,
+    padding: '8px 12px',
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
   promptRow: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -357,6 +411,11 @@ const styles = {
     padding: '12px 16px',
     fontWeight: 800,
     cursor: 'pointer',
+  },
+  usageText: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: 700,
   },
   error: {
     color: '#b91c1c',
