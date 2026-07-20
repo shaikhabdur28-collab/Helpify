@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import helpifyReadme from './README.md?raw'
+import githubSetup from './GITHUB_SETUP.md?raw'
 
 const STORAGE_KEYS = {
   users: 'helpify-users',
@@ -243,28 +245,62 @@ function aggregateSchoolStats(students) {
   }
 }
 
-function getChatReply(message, profile) {
-  const text = message.toLowerCase()
-  const weakest = getWeakestSubject(profile)
+const DOCUMENT_KNOWLEDGE = [
+  { title: 'README', content: helpifyReadme },
+  { title: 'GitHub setup', content: githubSetup },
+]
 
-  if (text.includes('reminder') || text.includes('today')) {
-    return `For today, I’d focus on ${weakest.name}. A short 25-minute session and one homework check-in would make a strong difference.`
+function normalizeText(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildDocumentChunks() {
+  return DOCUMENT_KNOWLEDGE.flatMap((doc) => {
+    const sections = doc.content
+      .split(/\n{2,}/)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean)
+
+    return sections.map((chunk) => ({
+      title: doc.title,
+      text: chunk,
+      normalized: normalizeText(chunk),
+    }))
+  })
+}
+
+const DOCUMENT_CHUNKS = buildDocumentChunks()
+
+function getDocumentReply(message, profile) {
+  const query = normalizeText(message)
+  if (!query) {
+    return 'I can answer based on the uploaded Helpify documents. Try asking about setup, privacy, deployment, or how the app works.'
   }
 
-  if (text.includes('goal') || text.includes('improve')) {
-    const goals = profile.goals || 'your goals'
-    return `Your current goal is ${goals}. A smart next step is to break it into one small action and one quick progress check-in.`
+  const queryTerms = query.split(' ').filter(Boolean)
+  const scored = DOCUMENT_CHUNKS.map((chunk) => {
+    const matches = queryTerms.reduce((count, term) => count + (chunk.normalized.includes(term) ? 1 : 0), 0)
+    return { ...chunk, score: matches }
+  }).filter((chunk) => chunk.score > 0)
+
+  if (scored.length) {
+    scored.sort((a, b) => b.score - a.score)
+    const best = scored[0]
+    const lines = best.text.split('\n').filter(Boolean)
+    const answerLine = lines.find((line) => line.trim().length > 0 && !line.startsWith('#')) || best.text
+    return `From the uploaded docs: ${answerLine.replace(/\s+/g, ' ').slice(0, 220)}${answerLine.length > 220 ? '…' : ''}`
   }
 
-  if (text.includes('tutor') || text.includes('help')) {
-    return `A good starting point is support in ${weakest.name}, paired with a study-skills coach for planning and accountability.`
+  const fallback = DOCUMENT_CHUNKS.find((chunk) => chunk.normalized.includes('privacy') || chunk.normalized.includes('deploy'))
+  if (fallback) {
+    return `From the uploaded docs: ${fallback.text.split('\n').find(Boolean).replace(/\s+/g, ' ').slice(0, 220)}…`
   }
 
-  if (text.includes('stress') || text.includes('overwhelm')) {
-    return `Try one small win first: set a 20-minute timer, finish one task, and take a short break before moving on.`
-  }
-
-  return `I can help with study plans, reminders, tutor suggestions, or next steps. Try asking about your weakest subject or what to focus on today.`
+  return 'I can answer from the uploaded Helpify documents. Ask about setup, privacy, deployment, or the app’s features.'
 }
 
 function loadJson(key, fallback) {
@@ -303,7 +339,7 @@ function App() {
   const [reminderForm, setReminderForm] = useState(DEFAULT_REMINDER)
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState([
-    { id: 'welcome', role: 'assistant', text: 'Hi! I can help with study plans, reminders, tutor ideas, or your next step.' },
+    { id: 'welcome', role: 'assistant', text: 'I can answer from the uploaded Helpify documents. Ask me about setup, privacy, deployment, or how the app works.' },
   ])
 
   useEffect(() => {
@@ -540,7 +576,7 @@ function App() {
     const trimmed = chatInput.trim()
     if (!trimmed) return
 
-    const reply = getChatReply(trimmed, dashboardProfile)
+    const reply = getDocumentReply(trimmed, dashboardProfile)
     setChatMessages((prev) => [
       ...prev,
       { id: `user-${Date.now()}`, role: 'user', text: trimmed },
