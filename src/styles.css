@@ -88,6 +88,13 @@ textarea { min-height: 88px; resize: vertical; }
 .chart-fill { background: linear-gradient(90deg, #4361ee, #4cc9f0); height: 100%; border-radius: inherit; }
 .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 .plan-card { background: #f8fbff; border-radius: 16px; padding: 14px; border: 1px solid #e2e8f0; }
+.chat-card { border: 1px solid #e2e8f0; border-radius: 18px; padding: 14px; background: linear-gradient(135deg, #f8fbff, #eef4ff); }
+.chat-messages { display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow: auto; margin-bottom: 12px; }
+.chat-bubble { max-width: 82%; padding: 10px 12px; border-radius: 14px; line-height: 1.45; }
+.chat-bubble.user { margin-left: auto; background: linear-gradient(135deg, #4361ee, #4cc9f0); color: white; }
+.chat-bubble.assistant { background: white; border: 1px solid #e2e8f0; }
+.chat-form { display: flex; gap: 10px; }
+.chat-form input { flex: 1; }
 .reminder-layout { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 16px; }
 .reminder-item.done { opacity: 0.7; }
 

@@ -243,6 +243,30 @@ function aggregateSchoolStats(students) {
   }
 }
 
+function getChatReply(message, profile) {
+  const text = message.toLowerCase()
+  const weakest = getWeakestSubject(profile)
+
+  if (text.includes('reminder') || text.includes('today')) {
+    return `For today, I’d focus on ${weakest.name}. A short 25-minute session and one homework check-in would make a strong difference.`
+  }
+
+  if (text.includes('goal') || text.includes('improve')) {
+    const goals = profile.goals || 'your goals'
+    return `Your current goal is ${goals}. A smart next step is to break it into one small action and one quick progress check-in.`
+  }
+
+  if (text.includes('tutor') || text.includes('help')) {
+    return `A good starting point is support in ${weakest.name}, paired with a study-skills coach for planning and accountability.`
+  }
+
+  if (text.includes('stress') || text.includes('overwhelm')) {
+    return `Try one small win first: set a 20-minute timer, finish one task, and take a short break before moving on.`
+  }
+
+  return `I can help with study plans, reminders, tutor suggestions, or next steps. Try asking about your weakest subject or what to focus on today.`
+}
+
 function loadJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key)
@@ -277,6 +301,10 @@ function App() {
   const [studentForm, setStudentForm] = useState(DEFAULT_STUDENT)
   const [savedStudentId, setSavedStudentId] = useState(null)
   const [reminderForm, setReminderForm] = useState(DEFAULT_REMINDER)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState([
+    { id: 'welcome', role: 'assistant', text: 'Hi! I can help with study plans, reminders, tutor ideas, or your next step.' },
+  ])
 
   useEffect(() => {
     const users = loadJson(STORAGE_KEYS.users, null)
@@ -505,6 +533,20 @@ function App() {
     }
     persistReminders([...allReminders, newReminder])
     setReminderForm(DEFAULT_REMINDER)
+  }
+
+  function sendChatMessage(e) {
+    e.preventDefault()
+    const trimmed = chatInput.trim()
+    if (!trimmed) return
+
+    const reply = getChatReply(trimmed, dashboardProfile)
+    setChatMessages((prev) => [
+      ...prev,
+      { id: `user-${Date.now()}`, role: 'user', text: trimmed },
+      { id: `assistant-${Date.now() + 1}`, role: 'assistant', text: reply },
+    ])
+    setChatInput('')
   }
 
   function toggleReminderDone(reminder) {
@@ -864,6 +906,28 @@ function App() {
                 <p>{item.detail}</p>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="section-header">
+            <div>
+              <h2>AI support chat</h2>
+              <p className="muted">Ask for a quick study plan, reminder idea, or next step.</p>
+            </div>
+          </div>
+          <div className="chat-card">
+            <div className="chat-messages">
+              {chatMessages.map((message) => (
+                <div key={message.id} className={`chat-bubble ${message.role}`}>
+                  {message.text}
+                </div>
+              ))}
+            </div>
+            <form className="chat-form" onSubmit={sendChatMessage}>
+              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="What should I focus on today?" />
+              <button className="primary" type="submit">Send</button>
+            </form>
           </div>
         </section>
 
