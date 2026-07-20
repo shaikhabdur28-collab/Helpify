@@ -428,6 +428,10 @@ function App() {
 
   const isTeacherOrAdmin = currentUser?.role === 'teacher' || currentUser?.role === 'admin'
 
+  function scrollToAssistant() {
+    document.getElementById('assistant-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const chatWidget = (
     <div className="floating-chat-shell">
       <button className="floating-chat-toggle" type="button" onClick={() => setChatOpen((prev) => !prev)}>
@@ -818,10 +822,14 @@ function App() {
             <div className="hero-stat"><span>Upcoming reminders</span><strong>{upcomingCount}</strong></div>
             <div className="hero-stat"><span>Average</span><strong>{stats.average || '—'}%</strong></div>
           </div>
+          <div className="assistant-cta">
+            <button className="primary" type="button" onClick={scrollToAssistant}>Open Helpify Assistant</button>
+            <span className="muted">Get immediate help with study plans, reminders, and tutor ideas.</span>
+          </div>
           {nextReminder ? <p className="hero-footnote">Next reminder: {nextReminder.title || 'Untitled'} • {formatDate(nextReminder.dueDate)}</p> : null}
         </section>
 
-        <section className="card full-span assistant-spotlight">
+        <section id="assistant-panel" className="card full-span assistant-spotlight">
           <div className="section-header">
             <div>
               <p className="eyebrow">Featured helper</p>

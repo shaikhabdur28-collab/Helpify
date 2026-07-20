@@ -3,6 +3,7 @@ import helpifyDoc from './README (4).md?raw'
 
 const STORAGE_KEY = 'helpify-gemini-key'
 const CHAT_KEY = 'helpify-chat-messages'
+const QUICK_PROMPTS = ['Build me a study plan', 'Suggest a tutor for math', 'Remind me about upcoming work']
 
 export default function GeminiChatbot({ studentProfile, schoolStats, currentUser }) {
   const [apiKey, setApiKey] = useState('')
@@ -167,8 +168,16 @@ ${schoolStats ? `Total profiles: ${schoolStats.total}, At risk: ${schoolStats.at
 
   return (
     <div style={styles.card}>
-      <h2 style={styles.title}>AI chatbot</h2>
+      <h2 style={styles.title}>Helpify Assistant</h2>
       <p style={styles.subtitle}>Ask Helpify AI about study help, reminders, tutoring, or progress.</p>
+
+      <div style={styles.promptRow}>
+        {QUICK_PROMPTS.map((prompt) => (
+          <button key={prompt} type="button" style={styles.promptChip} onClick={() => setInput(prompt)}>
+            {prompt}
+          </button>
+        ))}
+      </div>
 
       <div style={styles.chatBox}>
         {messages.map((message, index) => (
@@ -251,6 +260,20 @@ const styles = {
   },
   title: { margin: 0, fontSize: 22, fontWeight: 900, color: '#172033' },
   subtitle: { margin: 0, color: '#667085' },
+  promptRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  promptChip: {
+    border: '1px solid #dbe3ef',
+    background: '#f8fbff',
+    color: '#2563eb',
+    borderRadius: 999,
+    padding: '8px 12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
   chatBox: {
     maxHeight: 320,
     overflowY: 'auto',
