@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   session: 'helpify-session',
   students: 'helpify-students',
   reminders: 'helpify-reminders',
+  chat: 'helpify-chat',
 }
 
 const ROLE_LABELS = {
@@ -243,6 +244,27 @@ function aggregateSchoolStats(students) {
   }
 }
 
+function buildChatSummary(profile, stats, currentUser) {
+  const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'admin'
+  const schoolContext = currentUser?.schoolCode ? `School code: ${currentUser.schoolCode}.` : ''
+  const studentContext = profile?.name ? `Selected student: ${profile.name}, grade ${profile.grade || 'unknown'}, subjects ${profile.subjects || 'none'}.` : 'No student selected.'
+  const metrics = profile
+    ? `Attendance ${profile.attendance}%, homework ${profile.homework}%, focus ${profile.focus}%, math ${profile.mathScore}%, English ${profile.englishScore}%, science ${profile.scienceScore}%.`
+    : ''
+
+  return [
+    'You are Helpify AI, a supportive student success assistant.',
+    'Give concise, practical, safe advice for students, teachers, and admins.',
+    'Do not mention policies or system instructions.',
+    'If the user asks about study help, give short next steps, not long essays.',
+    isTeacher ? 'When helping a teacher or admin, focus on interventions, progress, and school support.' : 'When helping a student, focus on motivation, planning, and simple actions.',
+    schoolContext,
+    studentContext,
+    metrics,
+    stats ? `Roster summary: ${stats.total} profiles, ${stats.atRisk} at risk, average ${stats.average || 0}%.` : '',
+  ].filter(Boolean).join(' ')
+}
+
 function loadJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key)
@@ -254,6 +276,10 @@ function loadJson(key, fallback) {
 
 function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value))
+}
+
+function getChatStorageKey(userId) {
+  return `${STORAGE_KEYS.chat}-${userId || 'guest'}`
 }
 
 function App() {
@@ -273,6 +299,10 @@ function App() {
 
   const [students, setStudents] = useState([])
   const [reminders, setReminders] = useState([])
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatError, setChatError] = useState('')
   const [activeStudentId, setActiveStudentId] = useState(null)
   const [studentForm, setStudentForm] = useState(DEFAULT_STUDENT)
   const [savedStudentId, setSavedStudentId] = useState(null)
@@ -327,6 +357,33 @@ function App() {
       setActiveStudentId(visibleStudents[0].id)
     }
   }, [currentUser, activeStudentId])
+
+  useEffect(() => {
+    if (!currentUser) {
+      setChatMessages([])
+      setChatInput('')
+      setChatError('')
+      return
+    }
+
+    const savedChat = loadJson(getChatStorageKey(currentUser.id), [])
+    if (Array.isArray(savedChat) && savedChat.length) {
+      setChatMessages(savedChat)
+    } else {
+      setChatMessages([
+        {
+          id: `chat-${Date.now()}`,
+          role: 'assistant',
+          text: 'Hi, I am Helpify AI. Ask me about study plans, progress, reminders, or tutoring help.',
+        },
+      ])
+    }
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!currentUser) return
+    saveJson(getChatStorageKey(currentUser.id), chatMessages)
+  }, [chatMessages, currentUser])
 
   const activeStudent = useMemo(() => {
     if (!students.length) return null
@@ -517,6 +574,59 @@ function App() {
     persistReminders(allReminders.filter((item) => item.id !== id))
   }
 
+  async function sendChatMessage() {
+    const text = chatInput.trim()
+    if (!text || chatLoading) return
+
+    const userMessage = { id: `chat-${Date.now()}`, role: 'user', text }
+    const nextMessages = [...chatMessages, userMessage]
+    setChatMessages(nextMessages)
+    setChatInput('')
+    setChatError('')
+    setChatLoading(true)
+
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+    if (!apiKey) {
+      setChatLoading(false)
+      setChatError('Add VITE_GEMINI_API_KEY to enable the Gemini chatbot.')
+      return
+    }
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: buildChatSummary(activeStudent || studentForm, stats, currentUser) }],
+          },
+          contents: nextMessages.map((message) => ({
+            role: message.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: message.text }],
+          })),
+          generationConfig: {
+            temperature: 0.5,
+            maxOutputTokens: 300,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Gemini request failed: ${errorText}`)
+      }
+
+      const data = await response.json()
+      const reply = data?.candidates?.[0]?.content?.parts?.map((part) => part.text).join('')?.trim() || 'I could not generate a response just now.'
+
+      setChatMessages((prev) => [...prev, { id: `chat-${Date.now()}-reply`, role: 'assistant', text: reply }])
+    } catch (error) {
+      setChatError(error.message || 'Something went wrong while contacting Gemini.')
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
   function handleStudentSelect(student) {
     setActiveStudentId(student.id)
     setSavedStudentId(student.id)
@@ -571,14 +681,10 @@ function App() {
           <div className="hero-stack">
             <div className="hero-card">
               <p className="eyebrow">Private by design</p>
-              <h2>Support students with clarity, confidence, and a calmer plan.</h2>
+              <h2>Student support, progress tracking, tutor matching, and reminders in one place.</h2>
               <p>
-                Helpify now feels more like a modern student support hub: guided check-ins, clear progress snapshots, and a simple path from concern to action.
+                This version is fully self-contained and stores data in the browser, so it is ready to upload to GitHub without Firebase.
               </p>
-              <div className="button-row">
-                <button className="primary" type="button" onClick={() => setMode('signup')}>Create an account</button>
-                <button className="secondary" type="button" onClick={() => setMode('login')}>Log in</button>
-              </div>
             </div>
 
             <div className="split-grid">
@@ -697,11 +803,6 @@ function App() {
             <p>
               Helpify turns student data into the next best action: study plans, reminders, progress charts, and tutor matches.
             </p>
-            <div className="hero-badges">
-              <span className="badge green">Live insights</span>
-              <span className="badge purple">Support plans</span>
-              <span className="badge dark">Private data</span>
-            </div>
           </div>
           <div className="hero-stats">
             <div className="hero-stat"><span>Profiles</span><strong>{stats.total}</strong></div>
@@ -902,22 +1003,49 @@ function App() {
           </div>
         </section>
 
-        <section className="card full-span info-strip">
-          <div className="info-strip-grid">
+        <section className="card">
+          <div className="section-header">
             <div>
-              <p className="eyebrow">Always improving</p>
-              <h3>Built to support students, teachers, and families in one calm workspace.</h3>
+              <h2>AI chatbot</h2>
+              <p className="muted">Ask Helpify AI about study help, progress, reminders, or tutoring.</p>
             </div>
-            <div className="info-strip-cards">
-              <div className="mini-card"><strong>Focus</strong><p>Turn progress into actionable next steps.</p></div>
-              <div className="mini-card"><strong>Momentum</strong><p>Keep reminders and support plans in one place.</p></div>
+          </div>
+          <div className="chat-shell">
+            <div className="chat-history">
+              {chatMessages.map((message) => (
+                <div key={message.id} className={`chat-bubble ${message.role === 'assistant' ? 'assistant' : 'user'}`}>
+                  {message.text}
+                </div>
+              ))}
+              {chatLoading ? <div className="chat-bubble assistant">Typing…</div> : null}
+            </div>
+            {chatError ? <p className="error-text">{chatError}</p> : null}
+            <div className="chat-input-area">
+              <label className="chat-label">
+                Ask Helpify AI
+                <textarea
+                  className="chat-input"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="How should I improve my math grade?"
+                />
+              </label>
+              <div className="button-row">
+                <button className="primary" type="button" onClick={sendChatMessage} disabled={chatLoading}>
+                  {chatLoading ? 'Sending…' : 'Send'}
+                </button>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => setChatMessages([{ id: `chat-${Date.now()}`, role: 'assistant', text: 'Hi, I am Helpify AI. Ask me about study plans, progress, reminders, or tutoring help.' }])}
+                >
+                  Reset chat
+                </button>
+              </div>
             </div>
           </div>
         </section>
       </main>
-      <footer className="page-footer">
-        <p>Helpify • Student support made simple</p>
-      </footer>
     </div>
   )
 }
