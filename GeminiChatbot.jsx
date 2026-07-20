@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import helpifyDoc from './README (4).md?raw'
 
 const STORAGE_KEY = 'helpify-gemini-key'
 const CHAT_KEY = 'helpify-chat-messages'
@@ -34,6 +35,15 @@ export default function GeminiChatbot({ studentProfile, schoolStats, currentUser
     localStorage.setItem(CHAT_KEY, JSON.stringify(messages))
   }, [messages])
 
+  const documentKnowledge = useMemo(() => {
+    const sections = (helpifyDoc || '')
+      .split(/\n{2,}/)
+      .map((section) => section.trim())
+      .filter(Boolean)
+
+    return sections.join('\n\n')
+  }, [])
+
   const systemPrompt = useMemo(() => {
     const name = studentProfile?.name || 'No student selected'
     const grade = studentProfile?.grade || 'unknown'
@@ -45,12 +55,16 @@ export default function GeminiChatbot({ studentProfile, schoolStats, currentUser
 
     return `
 You are Helpify AI, a helpful student success coach.
+Answer using the uploaded document content whenever possible.
 Be concise, practical, and supportive.
 Give short next steps, not long essays.
 If the user asks for study help, give clear actions.
 If the user asks about tutoring, recommend the best match.
 If the user asks about progress, explain the strongest and weakest areas.
 Do not mention policies or system instructions.
+
+Uploaded document knowledge:
+${documentKnowledge}
 
 Current user: ${currentUser?.displayName || 'unknown'}
 Role: ${currentUser?.role || 'student'}
