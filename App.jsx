@@ -754,6 +754,30 @@ function App() {
           {nextReminder ? <p className="hero-footnote">Next reminder: {nextReminder.title || 'Untitled'} • {formatDate(nextReminder.dueDate)}</p> : null}
         </section>
 
+        <section className="card full-span assistant-spotlight">
+          <div className="section-header">
+            <div>
+              <p className="eyebrow">Featured helper</p>
+              <h2>Ask Helpify</h2>
+              <p className="muted">A quick support assistant is now right here on the dashboard.</p>
+            </div>
+            <div className="summary-pill">Try: reminder, goal, tutor</div>
+          </div>
+          <div className="chat-card assistant-chat">
+            <div className="chat-messages">
+              {chatMessages.map((message) => (
+                <div key={message.id} className={`chat-bubble ${message.role}`}>
+                  {message.text}
+                </div>
+              ))}
+            </div>
+            <form className="chat-form" onSubmit={sendChatMessage}>
+              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="What should I focus on today?" />
+              <button className="primary" type="submit">Send</button>
+            </form>
+          </div>
+        </section>
+
         {isTeacherOrAdmin ? (
           <section className="card full-span">
             <div className="section-header">
@@ -906,28 +930,6 @@ function App() {
                 <p>{item.detail}</p>
               </article>
             ))}
-          </div>
-        </section>
-
-        <section className="card">
-          <div className="section-header">
-            <div>
-              <h2>AI support chat</h2>
-              <p className="muted">Ask for a quick study plan, reminder idea, or next step.</p>
-            </div>
-          </div>
-          <div className="chat-card">
-            <div className="chat-messages">
-              {chatMessages.map((message) => (
-                <div key={message.id} className={`chat-bubble ${message.role}`}>
-                  {message.text}
-                </div>
-              ))}
-            </div>
-            <form className="chat-form" onSubmit={sendChatMessage}>
-              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="What should I focus on today?" />
-              <button className="primary" type="submit">Send</button>
-            </form>
           </div>
         </section>
 
