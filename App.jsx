@@ -338,6 +338,7 @@ function App() {
   const [savedStudentId, setSavedStudentId] = useState(null)
   const [reminderForm, setReminderForm] = useState(DEFAULT_REMINDER)
   const [chatInput, setChatInput] = useState('')
+  const [chatOpen, setChatOpen] = useState(true)
   const [chatMessages, setChatMessages] = useState([
     { id: 'welcome', role: 'assistant', text: 'I can answer from the uploaded Helpify documents. Ask me about setup, privacy, deployment, or how the app works.' },
   ])
@@ -425,6 +426,33 @@ function App() {
   }, [activeStudent, dashboardProfile, currentUser])
 
   const isTeacherOrAdmin = currentUser?.role === 'teacher' || currentUser?.role === 'admin'
+
+  const chatWidget = (
+    <div className="floating-chat-shell">
+      <button className="floating-chat-toggle" type="button" onClick={() => setChatOpen((prev) => !prev)}>
+        {chatOpen ? 'Hide chat' : 'Open chat'}
+      </button>
+      {chatOpen ? (
+        <div className="floating-chat-card">
+          <div className="floating-chat-header">
+            <strong>Ask Helpify</strong>
+            <button className="ghost small" type="button" onClick={() => setChatOpen(false)}>Close</button>
+          </div>
+          <div className="chat-messages compact">
+            {chatMessages.map((message) => (
+              <div key={message.id} className={`chat-bubble ${message.role}`}>
+                {message.text}
+              </div>
+            ))}
+          </div>
+          <form className="chat-form" onSubmit={sendChatMessage}>
+            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Ask about setup, privacy, or deployment" />
+            <button className="primary" type="submit">Send</button>
+          </form>
+        </div>
+      ) : null}
+    </div>
+  )
   const stats = useMemo(() => aggregateSchoolStats(students), [students])
   const progressCards = useMemo(() => buildProgressCards(studentForm), [studentForm])
   const studyPlan = useMemo(() => buildStudyPlan(studentForm), [studentForm])
@@ -708,6 +736,7 @@ function App() {
           <button className="ghost" type="button" onClick={resetDemoData}>Reset demo data</button>
           <p className="muted small">Demo accounts: student@helpify.app / student123, teacher@helpify.app / teacher123, admin@helpify.app / admin123.</p>
         </div>
+        {chatWidget}
       </div>
     )
   }
@@ -746,6 +775,7 @@ function App() {
             <button className="ghost" type="button" onClick={signOut}>Log out</button>
           </div>
         </div>
+        {chatWidget}
       </div>
     )
   }
